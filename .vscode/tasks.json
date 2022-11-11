@@ -1,0 +1,31 @@
+{
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "Lab 1 (Debug)",
+            "command": "make",
+            "args": ["debug"],
+            "options": {
+                "cwd": "${workspaceFolder}/lab1"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+        },
+        {
+            "type": "shell",
+            "label": "Lab 1",
+            "command": "make",
+            "args": ["all"],
+            "options": {
+                "cwd": "${workspaceFolder}/lab1"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+        },
+    ],
+    "version": "2.0.0"
+}
