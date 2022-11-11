@@ -98,10 +98,15 @@ int main()
     free(req);
 
     static char buf[N];
-    size_t len = recv(fd, buf, sizeof buf, 0);
-    if (!~len)
-        ERR("Failed to receive!!")
-    DBG("Buf = ``%s\"\"", buf);
+    size_t len = 0, x;
+    do
+    {
+        x = recv(fd, buf, sizeof buf, MSG_WAITALL);
+        if (!~x)
+            ERR("Failed to receive!!");
+        len += x;
+    } while (x);
+    DBG("Buf = ``%s\"\"\n\n\tRecieved %zu characters", buf, len);
 #pragma endregion // Socket
 
 #pragma region
