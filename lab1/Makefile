@@ -8,8 +8,11 @@ OBJ = $(patsubst src/%.c,obj/%.o,$(SRC))
 all: $(OBJ)
 	$(CC) $(CFLAGS) $^
 
-obj/%.o: src/%.c
+obj/%.o: src/%.c | obj
 	$(CC) $(CFLAGS) -c $< -o $@
+
+obj:
+	mkdir obj
 
 clean:
 	rm $(OBJ) a.out
