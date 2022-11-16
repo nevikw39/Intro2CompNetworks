@@ -67,6 +67,11 @@ int main()
     char *url = NULL, *host = NULL, *path = NULL; // url := host/path
     printf("Please enter the URL:\n>>> ");
     scanf("%ms", &url);
+    if (!url)
+    {
+        url = malloc(sizeof(char) << 8);
+        scanf("%s", url);
+    }
     split_url(url, &host, &path);
     DBG("Host = %s, Path = %s", host, path);
     if (url)
