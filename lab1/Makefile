@@ -15,10 +15,17 @@ obj:
 	mkdir obj
 
 clean:
-	rm $(OBJ) a.out
+	-rm $(OBJ) a.out
+	-latexmk -C -cd doc/README.tex
 
 nevikw39: CFLAGS += -Dnevikw39 -Wall -Wextra
 nevikw39: all
 
 debug: CFLAGS += -fdiagnostics-color=always -g -DDEBUG -fsanitize=address -fsanitize=undefined
 debug: nevikw39
+
+doc: doc/README.pdf
+
+doc/README.pdf: doc/README.tex
+	latexmk -xelatex -cd doc/README.tex
+	latexmk -c -cd doc/README.tex
