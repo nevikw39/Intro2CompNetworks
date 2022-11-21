@@ -5,6 +5,7 @@
 \date{\today}
 
 \usepackage{xeCJK}
+\usepackage{float}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{caption}
@@ -101,7 +102,7 @@ Connection: close{\ccpl\itshape␍␊}\\
 
 約莫國中的時候曾經自己借書回來在 Windows 上以 \textsf{WinSock} API 撰寫一些很簡單的小程式。現在對於細節當然早就忘光，不過大致的概念像是 \texttt{socket()}, \texttt{bind()}, \texttt{connect()} 等 function 是還有一點印象。
 
-實作上遇到最大的挑戰是在接收的時候，原本我是宣告一個夠大的 buffer 只呼叫一次 \texttt{recv()} 就希望可以讀取全部，但執行後發現雖然有時可以完整得到 response, 但更多時候是有遺漏的。有嘗試給予 \texttt{recv()} \texttt{MSG\_WAITALL} 的 flag, 效果卻不彰。進一步查看接收到的長度，發現往往只有 1492 bytes, 而這個數字似乎與 MTU \textit{(Maximum Transmission Unit)} 有關。最終，我才採用 \texttt{do-while} loop 持續接收直到長度為 0. 這部分感覺還可以再優化記憶體，既然都用 loop 了可以有需要才 \texttt{realloc()}.
+實作上遇到最大的挑戰是在接收的時候。助教的 tutorial 是以 \texttt{send()} 傳送請求，以 \texttt{read()} 接收回覆。但根據我撰寫一些通訊相關的程式 (e.g., MPI \textit{(Message Passing Interface)}, \textsf{InfiniBand} RDMA \textit{(Remote Direct Memory Access)}) 的經驗，通常 \texttt{send()}, \texttt{recv()} 是一對而 \texttt{write()}, \texttt{read()} 則是另一對。原本我是宣告一個夠大的 buffer 只呼叫一次 \texttt{recv()} 就希望可以讀取全部，但執行後發現雖然有時可以完整得到 response, 但更多時候是有遺漏的。有嘗試給予 \texttt{recv()} \texttt{MSG\_WAITALL} 的 flag, 效果卻不彰。進一步查看接收到的長度，發現往往只有 1492 bytes, 而這個數字似乎與 MTU \textit{(Maximum Transmission Unit)} 有關。最終，我才採用 \texttt{do-while} loop 持續接收直到長度為 0. 這部分感覺還可以再優化記憶體，既然都用 loop 了可以有需要才 \texttt{realloc()}.
 
 另一方面，一開始我以為需要找出所有 anchor tags 的 hyper links, 但 C 沒有內建的 \textsf{HTML} parser 而 \textsf{regular expression} 在 C 的支援也不熟悉。看了討論區之後，才知道我們僅需要列出型如 \texttt{<a href="*"></a>} 的 hyper links, 因此 \texttt{<string.h>} 中的 \texttt{strstr()}, \texttt{strchr()} functions 即足矣。
 
@@ -113,7 +114,7 @@ Connection: close{\ccpl\itshape␍␊}\\
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{screenshot_ubuntu}
+\includegraphics[width=.795\linewidth]{screenshot_ubuntu}
 \caption{Screenshot of Execution on \textsf{Ubuntu} 22.04 VM}
 \label{fig:screenshot_ubuntu}
 \end{figure}
@@ -122,14 +123,18 @@ Connection: close{\ccpl\itshape␍␊}\\
 
 \subsubsection{Updates}
 
-上網查到 \textsf{Ubuntu} 20.04 內建的 \texttt{gcc} 版本為 9.3.0. 我登入到國網中心的超級電腦台灣杉三號，上面最接近的版本為 9.4.0.
+上網查到 \textsf{Ubuntu} 20.04 內建的 \texttt{gcc} 版本為 9.3.0. 因此我登入到國網中心的超級電腦\textbf{台灣杉三號}，上面最接近的版本為 9.4.0.
 
-\begin{figure}[htbp]
+此外，我也特別到資電館的電腦教室 328, 發現那裡的 \textsf{Ubuntu} 剛好是 20.04. 在這兩個額外環境下，我的程式也都能順利編譯並執行。因此，我有信心可以在助教的 VM 運行。
+
+\begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{screenshot_twnia3}
 \caption{Screenshot of Execution on \textbf{Taiwania 3}}
 \label{fig:screenshot_twnia3}
 \end{figure}
+
+%\pagebreak
 
 \begin{table}[htp]
 \caption{Testbed (in Test Order)}
@@ -137,10 +142,11 @@ Connection: close{\ccpl\itshape␍␊}\\
 \begin{tabular}{c|c|c|c}
 OS & Arch. & Compiler & Note \\\hline
 Ubuntu 18.04 & x86-64 & GCC 10 & WSL 2 \\
-macOS 12.4 & AArch64 & Apple clang 13 \\
-macOS 11.6.4 & x86-64 & Apple clang 12 \\
-Ubuntu 22.04 & x86-64 & GCC 11 & VM \\
-CentOS 7.8.2003 & x86-64 & GCC 9 \\
+macOS 12.4 & AArch64 & Apple clang 13.1.6 \\
+macOS 11.6.4 & x86-64 & Apple clang 12.0.5 \\
+Ubuntu 22.04 & x86-64 & GCC 11.2.0 & VM \\
+CentOS 7.8.2003 & x86-64 & GCC 9.4.0 \\
+Ubuntu 20.04 & x86-64 & GCC 9.3.0 & not VM \\
 \end{tabular}
 \label{tab:testbed}
 \end{table}
