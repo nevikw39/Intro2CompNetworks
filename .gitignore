@@ -1,6 +1,9 @@
 *.o
 a.out
 
+*.zip
+.DS_Store
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
