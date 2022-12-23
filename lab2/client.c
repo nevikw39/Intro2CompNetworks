@@ -35,13 +35,13 @@
 #define DEBUG 0
 #endif
 #define DBG(x, ...) \
-    if (DEBUG)      \
-        fprintf(stderr, "\033[33m%s:%d:%s(): " x "\n\033[0m", __FILE__, __LINE__, __func__, __VA_ARGS__);
+	if (DEBUG)      \
+		fprintf(stderr, "\033[33m%s:%d:%s(): " x "\n\033[0m", __FILE__, __LINE__, __func__, __VA_ARGS__);
 #define ERR(x)                                                                                                              \
-    {                                                                                                                       \
-        fprintf(stderr, "\033[31m%s:%d:%s(): " x "\n\033[35m\t%s\n\033[0m", __FILE__, __LINE__, __func__, strerror(errno)); \
-        exit(EXIT_FAILURE);                                                                                                 \
-    }
+	{                                                                                                                       \
+		fprintf(stderr, "\033[31m%s:%d:%s(): " x "\n\033[35m\t%s\n\033[0m", __FILE__, __LINE__, __func__, strerror(errno)); \
+		exit(EXIT_FAILURE);                                                                                                 \
+	}
 
 #ifndef LOSS_RATE
 #define LOSS_RATE 0.5
@@ -135,7 +135,7 @@ int recvFile(FILE *fd)
 	int index = 0;
 	int receive_packet = 0;
 	memset(snd_pkt.data, '\0', sizeof(snd_pkt.data));
-	while (1)
+	while (true)
 	{
 		//=======================
 		// Simulation packet loss
@@ -143,20 +143,40 @@ int recvFile(FILE *fd)
 		if (isLoss(LOSS_RATE))
 		{
 			puts("\tOops! Packet loss!");
-			break;
+			continue;
 		}
 		//==============================================
 		// Actually receive packet and write into buffer
 		//==============================================
 
-		//==============================================
-		// Write buffer into file if is_last flag is set
-		//==============================================
+		int numbytes;
+		if (!~(numbytes = recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&info, (socklen_t *)&len)))
+			ERR("`sendto()` failed!");
+		if (rcv_pkt.header.seq_num != receive_packet)
+			continue;
+		printf("\tSEQ=%u\n", receive_packet);
+		numbytes -= sizeof(rcv_pkt.header);
+		DBG("%d", index + numbytes);
+		memcpy(buffer + index, rcv_pkt.data, numbytes);
+		index += numbytes;
 
 		//====================
 		// Reply ack to server
 		//====================
+
+		snd_pkt.header.ack_num = receive_packet++;
+		sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&info, len);
+
+		//==============================================
+		// Write buffer into file if is_last flag is set
+		//==============================================
+
+		if (rcv_pkt.header.is_last)
+			break;
 	}
+	fwrite(buffer, sizeof(char), index, fd);
+	DBG("%ld", ftell(fd));
+	fclose(fd);
 	return 0;
 }
 
@@ -179,9 +199,9 @@ int main(int argc, char *argv[])
 	char *server_ip = (char *)malloc(sizeof(char) * 30);
 	int server_port;
 
-	printf(">>> IP:\t");
+	printf("IP\t>>> ");
 	scanf("%s", server_ip);
-	printf(">>> Port:\t");
+	printf("Port\t>>> ");
 	scanf("%d", &server_port);
 
 	//==================================
@@ -200,7 +220,7 @@ int main(int argc, char *argv[])
 	memset(snd_pkt.data, '\0', sizeof(snd_pkt.data));
 	len = sizeof(info);
 
-	puts("Waiting for a commands...");
+	printf("Command\t>>> ");
 	getchar();
 	while (fgets(snd_pkt.data, 30, stdin))
 	{
@@ -255,6 +275,6 @@ int main(int argc, char *argv[])
 		else
 			puts("Illegal command.");
 
-		puts("Waiting for a commands...");
+		printf("Command\t>>> ");
 	}
 }
