@@ -4,6 +4,10 @@ a.out
 *.zip
 .DS_Store
 
+client
+server
+*.dSYM
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof

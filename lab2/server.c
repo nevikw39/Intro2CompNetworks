@@ -1,14 +1,49 @@
+/**                  _ _              _____ ___
+ *  _ __   _____   _(_) | ____      _|___ // _ \
+ * | '_ \ / _ \ \ / / | |/ /\ \ /\ / / |_ \ (_) |
+ * | | | |  __/\ V /| |   <  \ V  V / ___) \__, |
+ * |_| |_|\___| \_/ |_|_|\_\  \_/\_/ |____/  /_/
+ **/
+#include <assert.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <time.h>
-#include <arpa/inet.h>
-#include <sys/wait.h>
-#include <pthread.h>
+
+#ifndef nevikw39
+// #pragma GCC optimize("Ofast,unroll-loops,no-stack-protector,fast-math")
+// #pragma GCC target("tune=native,arch=x86-64")
+// #pragma comment(linker, "/stack:200000000")
+#else
+#pragma message("hello, nevikw39")
+#endif
+#pragma message("GL; HF!")
+
+#ifndef DEBUG
+#define DEBUG 0
+#endif
+#define DBG(x, ...) \
+    if (DEBUG)      \
+        fprintf(stderr, "\033[33m%s:%d:%s(): " x "\n\033[0m", __FILE__, __LINE__, __func__, __VA_ARGS__);
+#define ERR(x)                                                                                                              \
+    {                                                                                                                       \
+        fprintf(stderr, "\033[31m%s:%d:%s(): " x "\n\033[35m\t%s\n\033[0m", __FILE__, __LINE__, __func__, strerror(errno)); \
+        exit(EXIT_FAILURE);                                                                                                 \
+    }
+
 #define TIMEOUT 100
 /*****************notice**********************
  *
@@ -143,7 +178,7 @@ int sendFile(FILE *fd)
 	// Set is_last flag for the last part of packet
 	//=============================================
 
-	printf("send file successfully\n");
+	puts("Send file successfully");
 	fclose(fd);
 	return 0;
 }
@@ -153,12 +188,12 @@ int main(int argc, char *argv[])
 	//===========================
 	// argv[1] is for server port
 	//===========================
-	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
-	if (sockfd == -1)
-	{
-		printf("Fail to create a socket.");
-	}
+	if (argc < 2)
+		ERR("Please specify the port.");
+
+	if (!~(sockfd = socket(AF_INET, SOCK_DGRAM, 0)))
+		ERR("Fail to create a socket.");
 	//=======================
 	// input server info
 	// IP address = 127.0.0.1
@@ -173,11 +208,8 @@ int main(int argc, char *argv[])
 	//================
 	// Bind the socket
 	//================
-	if (bind(sockfd, (struct sockaddr *)&info, sizeof(info)) == -1)
-	{
-		perror("server_sockfd bind failed: ");
-		return 0;
-	}
+	if (!~bind(sockfd, (struct sockaddr *)&info, sizeof(info)))
+		ERR("`bind()` failed!");
 
 	//====================================
 	// Create send packet & receive packet
@@ -191,56 +223,51 @@ int main(int argc, char *argv[])
 	client_info.sin_family = AF_INET;
 	len = sizeof(client_info);
 
-	printf("====Parameter====\n");
-	printf("Server's IP is 127.0.0.1\n");
-	printf("Server is listening on port %d\n", port);
-	printf("==============\n");
+	puts("====Server Parameter====");
+	puts("IP:\t127.0.0.1");
+	printf("Port:\t%d\n", port);
+	puts("========================");
 
-	while (1)
+	while (true)
 	{
 		//=========================
 		// Initialization parameter
 		//=========================
-		snd_pkt.header.seq_num = 0;
-		snd_pkt.header.ack_num = 0;
-		snd_pkt.header.isLast = 0;
+		snd_pkt.header.seq_num = snd_pkt.header.ack_num = snd_pkt.header.isLast = 0;
 		FILE *fd;
 
-		printf("server waiting.... \n");
+		puts("Server waiting...");
 		char *str;
-		while ((recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, (socklen_t *)&len)) != -1)
+		while (~(recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, (socklen_t *)&len)))
 		{
 			// In client, we set is_last 1 to comfirm server get client's first message.
 			if (rcv_pkt.header.isLast == 1)
 				break;
 		}
-		printf("process command.... \n");
+		puts("Process command...");
 		str = strtok(rcv_pkt.data, " ");
 
 		//===============================================================
 		// command "download filename": download the file from the server
 		// and then check if filename is exist
 		//===============================================================
-		if (strcmp(str, "download") == 0)
+		if (!strcmp(str, "download"))
 		{
 			str = strtok(NULL, " \n");
-			printf("filename is %s\n", str);
+			printf("Filename is %s\n", str);
 			//===================
 			// if file not exists
 			//===================
-			if ((fd = fopen(str, "rb")) == NULL)
+			if (!(fd = fopen(str, "rb")))
 			{
 				//=======================================
 				// Send FILE_NOT_EXISTS msg to the client
 				//=======================================
-				printf("FILE_NOT_EXISTS\n");
+				puts("FILE_NOT_EXISTS");
 				strcpy(snd_pkt.data, "FILE_NOT_EXISTS");
 				int numbytes;
-				if ((numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&client_info, len)) == -1)
-				{
-					printf("sendto error\n");
-					return 0;
-				}
+				if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&client_info, len)))
+					ERR("`sendto()` failed!");
 				printf("server: sent %d bytes to %s\n", numbytes, inet_ntoa(client_info.sin_addr));
 			}
 			//==================
@@ -249,25 +276,22 @@ int main(int argc, char *argv[])
 			else
 			{
 				fseek(fd, 0, SEEK_END);
-				printf("FILE_EXISTS\n");
+				puts("FILE_EXISTS");
 				strcpy(snd_pkt.data, "FILE_EXISTS");
 
 				//==================================
 				// Send FILE_EXIST msg to the client
 				//==================================
 				int numbytes;
-				if ((numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&client_info, len)) == -1)
-				{
-					printf("sendto error\n");
-					return 0;
-				}
+				if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&client_info, len)))
+					ERR("`sendto()` failed!");
 				printf("server: sent %d bytes to %s\n", numbytes, inet_ntoa(client_info.sin_addr));
 
 				//==========================================================================
 				// Sleep 1 seconds before transmitting data to make sure the client is ready
 				//==========================================================================
 				sleep(1);
-				printf("trasmitting...\n");
+				puts("Trasmitting...");
 
 				//=====================================
 				// Start to send the file to the client
@@ -277,8 +301,6 @@ int main(int argc, char *argv[])
 			}
 		}
 		else
-		{
-			printf("Illegal request!\n");
-		}
+			puts("Illegal request!");
 	}
 }

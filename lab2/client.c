@@ -1,12 +1,48 @@
+/**                  _ _              _____ ___
+ *  _ __   _____   _(_) | ____      _|___ // _ \
+ * | '_ \ / _ \ \ / / | |/ /\ \ /\ / / |_ \ (_) |
+ * | | | |  __/\ V /| |   <  \ V  V / ___) \__, |
+ * |_| |_|\___| \_/ |_|_|\_\  \_/\_/ |____/  /_/
+ **/
+#include <assert.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <time.h>
-#include <arpa/inet.h>
+
+#ifndef nevikw39
+// #pragma GCC optimize("Ofast,unroll-loops,no-stack-protector,fast-math")
+// #pragma GCC target("tune=native,arch=x86-64")
+// #pragma comment(linker, "/stack:200000000")
+#else
+#pragma message("hello, nevikw39")
+#endif
+#pragma message("GL; HF!")
+
+#define N (1 << 16)
+#ifndef DEBUG
+#define DEBUG 0
+#endif
+#define DBG(x, ...) \
+    if (DEBUG)      \
+        fprintf(stderr, "\033[33m%s:%d:%s(): " x "\n\033[0m", __FILE__, __LINE__, __func__, __VA_ARGS__);
+#define ERR(x)                                                                                                              \
+    {                                                                                                                       \
+        fprintf(stderr, "\033[31m%s:%d:%s(): " x "\n\033[35m\t%s\n\033[0m", __FILE__, __LINE__, __func__, strerror(errno)); \
+        exit(EXIT_FAILURE);                                                                                                 \
+    }
 
 /*****************notice**********************
  *
@@ -70,7 +106,7 @@ int isLoss(double prob)
 //==================================
 int recvFile(FILE *fd)
 {
-	printf("FILE_EXISTS\n");
+	puts("FILE_EXISTS");
 
 	char *str;
 	char fileName[30];
@@ -87,7 +123,7 @@ int recvFile(FILE *fd)
 	// FILE *fd;
 	fd = fopen(fileName, "wb");
 
-	printf("Receiving...\n");
+	puts("Receiving...");
 	char buffer[123431];
 	int index = 0;
 	int receive_packet = 0;
@@ -99,7 +135,7 @@ int recvFile(FILE *fd)
 		//=======================
 		if (isLoss(0.5))
 		{
-			printf("\tOops! Packet loss!\n");
+			puts("\tOops! Packet loss!");
 			break;
 		}
 		//==============================================
@@ -123,11 +159,8 @@ int main(int argc, char *argv[])
 	// Create socket
 	//==============
 	// int sockfd = 0;
-	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sockfd == -1)
-	{
-		printf("Fail to create a socket.");
-	}
+	if (!~(sockfd = socket(AF_INET, SOCK_DGRAM, 0)))
+		ERR("Fail to create a socket.");
 
 	//==================
 	// Input server info
@@ -139,9 +172,9 @@ int main(int argc, char *argv[])
 	char *server_ip = (char *)malloc(sizeof(char) * 30);
 	int server_port;
 
-	printf("give me an IP to send: ");
+	printf(">>> IP:\t");
 	scanf("%s", server_ip);
-	printf("server's's port? ");
+	printf(">>> Port:\t");
 	scanf("%d", &server_port);
 
 	//==================================
@@ -160,7 +193,7 @@ int main(int argc, char *argv[])
 	memset(snd_pkt.data, '\0', sizeof(snd_pkt.data));
 	len = sizeof(info);
 
-	printf("Waiting for a commands...\n");
+	puts("Waiting for a commands...");
 	getchar();
 	while (fgets(snd_pkt.data, 30, stdin))
 	{
@@ -168,17 +201,16 @@ int main(int argc, char *argv[])
 		// ================================
 		// command "exit": close the client
 		// ================================
-		if (strncmp(snd_pkt.data, "exit", 4) == 0)
+		if (!strncmp(snd_pkt.data, "exit", 4))
 		{
 			break;
 			// ==============================================================
 			// command "download filename": download the file from the server
 			// ==============================================================
 		}
-		else if (strncmp(snd_pkt.data, "download", 8) == 0)
+		else if (!strncmp(snd_pkt.data, "download", 8))
 		{
-			snd_pkt.header.seq_num = 0;
-			snd_pkt.header.ack_num = 0;
+			snd_pkt.header.seq_num = snd_pkt.header.ack_num = 0;
 			snd_pkt.header.is_last = 1;
 			// We first set is_last to 1 so that server know its our first message.
 			int numbytes;
@@ -186,46 +218,36 @@ int main(int argc, char *argv[])
 			//========================
 			// Send filename to server
 			//========================
-			if ((numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&info, len)) == -1)
-			{
-				perror("error");
-				return 0;
-			}
+			if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&info, len)))
+				ERR("`sendto()` failed!");
 			printf("client: sent %d bytes to %s\n", numbytes, inet_ntoa(info.sin_addr));
 			//=========================================
 			// Get server response if file exist or not
 			//=========================================
-			if ((numbytes = recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&info, (socklen_t *)&len)) == -1)
-			{
-				printf("recvfrom error\n");
-				return 0;
-			}
+			if (!~(numbytes = recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&info, (socklen_t *)&len)))
+				ERR("`recvfrom()` failed!");
 			printf("client: receive %d bytes from %s\n", numbytes, inet_ntoa(info.sin_addr));
 			// printf("%s", buf);
 
 			//====================
 			// File does not exist
 			//====================
-			if (strcmp(rcv_pkt.data, "FILE_NOT_EXISTS") == 0)
-			{
-				printf("FILE_NOT_EXISTS\n");
-			}
+			if (!strcmp(rcv_pkt.data, "FILE_NOT_EXISTS"))
+				puts("FILE_NOT_EXISTS");
 			//==========================
 			// File exists, receive file
 			//==========================
-			else if (strcmp(rcv_pkt.data, "FILE_EXISTS") == 0)
+			else if (!strcmp(rcv_pkt.data, "FILE_EXISTS"))
 			{
 				t1 = time(NULL);
 				recvFile(fd);
 				t2 = time(NULL);
-				printf("Total cost %ld secs\n", t2 - t1);
+				printf("Elasped %ld secs in total.\n", t2 - t1);
 			}
 		}
 		else
-		{
-			printf("Illegal command\n");
-		}
+			puts("Illegal command.");
 
-		printf("Waiting for a commands...\n");
+		puts("Waiting for a commands...");
 	}
 }
