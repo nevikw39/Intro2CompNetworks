@@ -5,7 +5,7 @@ LDFLAGS ?=
 SRC = $(wildcard src/*.c)
 BIN = $(patsubst src/%.c,bin/%,$(SRC))
 
-.PHONY: all clean nevikw39 debug
+.PHONY: all clean nevikw39 debug test
 
 debug: CFLAGS += -DDEBUG -g -fdiagnostics-color=always -fsanitize=address -fsanitize=undefined
 debug: nevikw39
@@ -27,4 +27,7 @@ bin:
 	mkdir bin
 
 clean:
-	-rm -f bin/*
+	-rm -rf bin/*
+
+test: all
+	test/test.sh

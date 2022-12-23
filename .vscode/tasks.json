@@ -26,6 +26,16 @@
                 "isDefault": true
             },
         },
+        {
+            "type": "shell",
+            "label": "Lab 2",
+            "command": "make",
+            "args": ["test"],
+            "options": {
+                "cwd": "${workspaceFolder}/lab2"
+            },
+            "group": "test",
+        },
     ],
     "version": "2.0.0"
 }
