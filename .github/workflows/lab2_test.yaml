@@ -1,0 +1,33 @@
+name: Lab 2 test
+
+on:
+  push:
+    paths:
+      - 'lab2/src/*'
+      - 'lab2/test/*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Cache client
+        uses: actions/cache@v2
+        with:
+          path: lab2/bin/client
+          key: $${{ hashFiles('lab2/src/client.c') }}
+
+      - name: Cache server
+        uses: actions/cache@v2
+        with:
+          path: lab2/bin/server
+          key: $${{ hashFiles('lab2/src/server.c') }}
+      
+      - run: |
+          cd lab2
+          make test
