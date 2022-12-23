@@ -31,7 +31,6 @@
 #endif
 #pragma message("GL; HF!")
 
-#define N (1 << 16)
 #ifndef DEBUG
 #define DEBUG 0
 #endif
@@ -43,6 +42,14 @@
         fprintf(stderr, "\033[31m%s:%d:%s(): " x "\n\033[35m\t%s\n\033[0m", __FILE__, __LINE__, __func__, strerror(errno)); \
         exit(EXIT_FAILURE);                                                                                                 \
     }
+
+#ifndef LOSS_RATE
+#define LOSS_RATE 0.5
+#else
+#define _STRINGIZE(x) #x
+#define STRINGIZE(x) _STRINGIZE(x)
+#pragma message("LOSS_RATE=" STRINGIZE(LOSS_RATE))
+#endif
 
 /*****************notice**********************
  *
@@ -133,7 +140,7 @@ int recvFile(FILE *fd)
 		//=======================
 		// Simulation packet loss
 		//=======================
-		if (isLoss(0.5))
+		if (isLoss(LOSS_RATE))
 		{
 			puts("\tOops! Packet loss!");
 			break;
