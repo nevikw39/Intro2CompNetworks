@@ -18,10 +18,11 @@ all: $(BIN)
 bin/client: LOSS_RATE ?= 0.5
 bin/client: CFLAGS += -DLOSS_RATE=$(LOSS_RATE)
 
-bin/server: LDFLAGS += -lm -lpthread
+bin/server: CFLAGS += -pthread
+bin/server: LDLIBS += -lm -lpthread
 
 bin/%: src/%.c | bin
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@ $(LDLIBS)
 
 bin:
 	mkdir bin
