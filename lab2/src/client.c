@@ -99,10 +99,9 @@ int recvFile(FILE *fd)
 			ERR("`sendto()` failed!");
 		if (rcv_pkt.header.seq_num != receive_packet)
 			continue;
-		printf("\tSEQ=%u\n", receive_packet);
+		printf("\tSEQ=%u\n", rcv_pkt.header.seq_num);
 		numbytes -= sizeof(rcv_pkt.header);
-		DBG("%d", index + numbytes);
-		memcpy(buffer + index, rcv_pkt.data, numbytes);
+		memcpy(buffer + (rcv_pkt.header.seq_num << 10), rcv_pkt.data, numbytes);
 		index += numbytes;
 
 		//====================

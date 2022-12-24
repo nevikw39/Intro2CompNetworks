@@ -48,6 +48,8 @@
 		exit(EXIT_FAILURE);                                                                                                 \
 	}
 
+#define N 123431
+
 //==============
 // Packet header
 //==============

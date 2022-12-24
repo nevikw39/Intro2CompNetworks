@@ -53,6 +53,17 @@ int first_time_create_thread = 0;
  *********************************************************/
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+char buffer[N];
+void sendPacket(int x)
+{
+	int sz = N - (x << 10) < 1024 ? N - (x << 10) : 1024;
+	memcpy(snd_pkt.data, buffer + (x << 10), sz);
+	snd_pkt.header.isLast = (x << 10 | 1024) >= N;
+	snd_pkt.header.seq_num = x;
+	if (!~sendto(sockfd, &snd_pkt, sizeof(snd_pkt.header) + sz, 0, (struct sockaddr *)&client_info, len))
+		ERR("`sendto()` failed!");
+}
+
 //------------------------------
 // Bonus part for timeout_thread
 //------------------------------
@@ -123,16 +134,13 @@ int sendFile(FILE *fd)
 	// Set is_last flag for the last part of packet
 	//=============================================
 
-	for (rewind(fd); filesize > 0; ++snd_pkt.header.seq_num)
+	rewind(fd);
+	fread(buffer, sizeof(char), sizeof(buffer), fd);
+
+	for (int i = 0; i << 10 < filesize; i++)
 		do
 		{
-			DBG("%d", filesize);
-			int sz = fread(snd_pkt.data, sizeof(char), sizeof(snd_pkt.data), fd);
-			if (!sz)
-				ERR("fread()");
-			snd_pkt.header.isLast = (filesize -= sz) <= 0;
-			if (!~sendto(sockfd, &snd_pkt, sizeof(snd_pkt.header) + sz, 0, (struct sockaddr *)&client_info, len))
-				ERR("`sendto()` failed!");
+			sendPacket(i);
 			for (clock_t clk = clock(); !~recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, (socklen_t *)&len) && (clock() - clk) * 1000 / CLOCKS_PER_SEC < TIMEOUT;)
 				;
 			printf("\tACK=%u\n", rcv_pkt.header.ack_num);
