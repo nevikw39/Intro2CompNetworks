@@ -29,5 +29,6 @@ jobs:
           key: $${{ hashFiles('lab2/src/server.c') }}
       
       - run: |
+          gcc --version
           cd lab2
           make test
