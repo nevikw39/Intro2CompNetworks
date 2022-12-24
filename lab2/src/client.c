@@ -81,12 +81,13 @@ int recvFile(FILE *fd)
 	int receive_packet = 0;
 	memset(snd_pkt.data, '\0', sizeof(snd_pkt.data));
 	bool acked[(N >> 10) + 1];
+	memset(acked, 0, sizeof(acked));
 	for (int last = N >> 10; receive_packet <= last;)
 	{
 		int numbytes;
 		if (!~(numbytes = recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&info, (socklen_t *)&len)))
 			ERR("`recvfrom()` failed!");
-		
+
 		//=======================
 		// Simulation packet loss
 		//=======================
@@ -106,13 +107,16 @@ int recvFile(FILE *fd)
 		printf("\tSEQ=%u\n", rcv_pkt.header.seq_num);
 		numbytes -= sizeof(rcv_pkt.header);
 		memcpy(buffer + (rcv_pkt.header.seq_num << 10), rcv_pkt.data, numbytes);
-		index += numbytes;
 
 		//====================
 		// Reply ack to server
 		//====================
 
-		acked[snd_pkt.header.ack_num = rcv_pkt.header.seq_num] = true;
+		if (!acked[snd_pkt.header.ack_num = rcv_pkt.header.seq_num])
+		{
+			acked[snd_pkt.header.ack_num] = true;
+			index += numbytes;
+		}
 		snd_pkt.header.isLast = rcv_pkt.header.isLast;
 		DBG("%d", snd_pkt.header.ack_num);
 		sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&info, len);
