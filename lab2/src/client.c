@@ -82,21 +82,24 @@ int recvFile(FILE *fd)
 	memset(snd_pkt.data, '\0', sizeof(snd_pkt.data));
 	while (true)
 	{
+		int numbytes;
+		if (!~(numbytes = recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&info, (socklen_t *)&len)))
+			ERR("`sendto()` failed!");
+
 		//=======================
 		// Simulation packet loss
 		//=======================
+		
 		if (isLoss(LOSS_RATE))
 		{
 			puts("\tOops! Packet loss!");
 			continue;
 		}
+
 		//==============================================
 		// Actually receive packet and write into buffer
 		//==============================================
 
-		int numbytes;
-		if (!~(numbytes = recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&info, (socklen_t *)&len)))
-			ERR("`sendto()` failed!");
 		if (rcv_pkt.header.seq_num != receive_packet)
 			continue;
 		printf("\tSEQ=%u\n", rcv_pkt.header.seq_num);
