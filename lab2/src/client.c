@@ -80,7 +80,8 @@ int recvFile(FILE *fd)
 	int index = 0;
 	int receive_packet = 0;
 	memset(snd_pkt.data, '\0', sizeof(snd_pkt.data));
-	while (true)
+	bool acked[(N >> 10) + 1];
+	for (int last = N >> 10; receive_packet <= last;)
 	{
 		//=======================
 		// Simulation packet loss
@@ -97,7 +98,7 @@ int recvFile(FILE *fd)
 		int numbytes;
 		if (!~(numbytes = recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&info, (socklen_t *)&len)))
 			ERR("`sendto()` failed!");
-		if (rcv_pkt.header.seq_num != receive_packet)
+		if (rcv_pkt.header.seq_num >= receive_packet + WND)
 			continue;
 		printf("\tSEQ=%u\n", rcv_pkt.header.seq_num);
 		numbytes -= sizeof(rcv_pkt.header);
@@ -108,15 +109,19 @@ int recvFile(FILE *fd)
 		// Reply ack to server
 		//====================
 
-		snd_pkt.header.ack_num = receive_packet++;
+		acked[snd_pkt.header.ack_num = rcv_pkt.header.seq_num] = true;
+		snd_pkt.header.isLast = rcv_pkt.header.isLast;
+		DBG("%d", snd_pkt.header.ack_num);
 		sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&info, len);
+		while (receive_packet <= last && acked[receive_packet])
+			++receive_packet;
 
 		//==============================================
 		// Write buffer into file if is_last flag is set
 		//==============================================
 
 		if (rcv_pkt.header.isLast)
-			break;
+			last = rcv_pkt.header.seq_num;
 	}
 	fwrite(buffer, sizeof(char), index, fd);
 	DBG("%ld", ftell(fd));

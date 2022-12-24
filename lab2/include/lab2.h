@@ -49,6 +49,7 @@
 	}
 
 #define N 123431
+#define WND 8
 
 //==============
 // Packet header

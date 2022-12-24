@@ -54,14 +54,20 @@ int first_time_create_thread = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char buffer[N];
+int base, timer[(N >> 10) + 1];
+bool acked[(N >> 10) + 1];
 void sendPacket(int x)
 {
 	int sz = N - (x << 10) < 1024 ? N - (x << 10) : 1024;
 	memcpy(snd_pkt.data, buffer + (x << 10), sz);
 	snd_pkt.header.isLast = (x << 10 | 1024) >= N;
 	snd_pkt.header.seq_num = x;
+	DBG("%d", x);
 	if (!~sendto(sockfd, &snd_pkt, sizeof(snd_pkt.header) + sz, 0, (struct sockaddr *)&client_info, len))
 		ERR("`sendto()` failed!");
+	pthread_mutex_lock(&mutex);
+	timer[x] = clock() * 1000 / CLOCKS_PER_SEC + TIMEOUT;
+	pthread_mutex_unlock(&mutex);
 }
 
 //------------------------------
@@ -79,10 +85,27 @@ void *receive_thread()
 	// Checking timeout & Receive client ack
 	//--------------------------------------
 
+	int ack = 0, last = N >> 10;
+	while (ack != last + 1 && ~recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, (socklen_t *)&len))
+	{
+		printf("\tACK=%d\n", rcv_pkt.header.ack_num);
+		pthread_mutex_lock(&mutex);
+		if (!acked[rcv_pkt.header.ack_num])
+		{
+			acked[rcv_pkt.header.ack_num] = true;
+			++ack;
+		}
+		while (base <= N >> 10 && acked[base])
+			++base;
+		pthread_mutex_unlock(&mutex);
+		if (rcv_pkt.header.isLast)
+			last = rcv_pkt.header.ack_num;
+	}
+
 	//------------------------------------------
 	// Keep the thread alive not to umcomment it
 	//------------------------------------------
-	// pthread_exit(NULL);
+	pthread_exit(NULL);
 }
 
 //------------------------------
@@ -90,6 +113,19 @@ void *receive_thread()
 //------------------------------
 void *timeout_thread()
 {
+	while (true)
+		for (int i = 0; i <= N >> 10; i++)
+		{
+			pthread_mutex_lock(&mutex);
+			if (!acked[i] && timer[i] && timer[i] <= clock() * 1000 / CLOCKS_PER_SEC)
+			{
+				pthread_mutex_unlock(&mutex);
+				printf("\tPacket %d timeout\n", i);
+				sendPacket(i);
+			}
+			else
+				pthread_mutex_unlock(&mutex);
+		}
 	//------------------------------------------
 	// Keep the thread alive not to umcomment it
 	//------------------------------------------
@@ -108,12 +144,12 @@ int sendFile(FILE *fd)
 	// umcomment it and manage the thread by youself
 	//----------------------------------------------------------------
 	// At the first time, we need to create thread.
-	if (!first_time_create_thread)
-	{
-		first_time_create_thread = 1;
-		// pthread_create(&th1, NULL, receive_thread, NULL);
-		// pthread_create(&th2, NULL, timeout_process, NULL);
-	}
+	// if (!first_time_create_thread)
+	// {
+	// 	first_time_create_thread = 1;
+	pthread_create(&th1, NULL, receive_thread, NULL);
+	pthread_create(&th2, NULL, timeout_thread, NULL);
+	// }
 	/*******************notice************************
 	 *
 	 * In basic part, you should finish this function.
@@ -136,16 +172,28 @@ int sendFile(FILE *fd)
 
 	rewind(fd);
 	fread(buffer, sizeof(char), sizeof(buffer), fd);
+	pthread_mutex_lock(&mutex);
+	base = 0;
+	memset(timer, 0, sizeof(timer));
+	memset(acked, 0, sizeof(acked));
+	pthread_mutex_unlock(&mutex);
 
 	for (int i = 0; i << 10 < filesize; i++)
-		do
+	{
+		pthread_mutex_lock(&mutex);
+		while (i >= base + WND)
 		{
-			sendPacket(i);
-			for (clock_t clk = clock(); !~recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, (socklen_t *)&len) && (clock() - clk) * 1000 / CLOCKS_PER_SEC < TIMEOUT;)
-				;
-			printf("\tACK=%u\n", rcv_pkt.header.ack_num);
-		} while (rcv_pkt.header.ack_num != snd_pkt.header.seq_num);
+			pthread_mutex_unlock(&mutex);
+			usleep(TIMEOUT * 1000);
+			pthread_mutex_lock(&mutex);
+		}
+		pthread_mutex_unlock(&mutex);
+		sendPacket(i);
+	}
 
+	pthread_join(th1, NULL);
+	int r = pthread_cancel(th2);
+	DBG("%d", r);
 	puts("Send file successfully");
 	fclose(fd);
 	return 0;
