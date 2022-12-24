@@ -138,13 +138,20 @@ int sendFile(FILE *fd)
 	fread(buffer, sizeof(char), sizeof(buffer), fd);
 
 	for (int i = 0; i << 10 < filesize; i++)
+	{
+		fd_set fds;
+		static struct timeval tv = {.tv_usec = TIMEOUT * 1000};
 		do
 		{
 			sendPacket(i);
-			for (clock_t clk = clock(); !~recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, (socklen_t *)&len) && (clock() - clk) * 1000 / CLOCKS_PER_SEC < TIMEOUT;)
-				;
-			printf("\tACK=%u\n", rcv_pkt.header.ack_num);
-		} while (rcv_pkt.header.ack_num != snd_pkt.header.seq_num);
+			FD_ZERO(&fds);
+			FD_SET(sockfd, &fds);
+			if (!~select(sockfd + 1, &fds, NULL, NULL, &tv))
+				ERR("`select()` failed!");
+		} while (!FD_ISSET(sockfd, &fds));
+		recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, (socklen_t *)&len);
+		printf("\tACK=%u\n", rcv_pkt.header.ack_num);
+	}
 
 	puts("Send file successfully");
 	fclose(fd);
