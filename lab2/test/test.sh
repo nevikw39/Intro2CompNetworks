@@ -2,7 +2,7 @@ cp test/video.mp4 bin
 cd bin
 
 ./server 9999 &
-./client <<EOF
+time ./client <<EOF
 127.0.0.1
 9999
 download video.mp4

@@ -1,10 +1,10 @@
 CC ?= gcc
-CFLAGS ?=
-LDFLAGS ?=
+CFLAGS += -Iinclude
 
 SRC = $(wildcard src/*.c)
 BIN = $(patsubst src/%.c,bin/%,$(SRC))
 
+.DEFAULT_GOAL := all
 .PHONY: all clean nevikw39 debug test
 
 debug: CFLAGS += -DDEBUG -g -fdiagnostics-color=always -fsanitize=address -fsanitize=undefined
