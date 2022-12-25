@@ -53,12 +53,13 @@ int first_time_create_thread = 0;
  *********************************************************/
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+int filesize;
 char buffer[N];
 void sendPacket(int x)
 {
-	int sz = N - (x << 10) < 1024 ? N - (x << 10) : 1024;
+	int sz = filesize - (x << 10) < 1024 ? filesize - (x << 10) : 1024;
 	memcpy(snd_pkt.data, buffer + (x << 10), sz);
-	snd_pkt.header.isLast = (x << 10 | 1024) >= N;
+	snd_pkt.header.isLast = ((x << 10) + 1024) >= filesize;
 	snd_pkt.header.seq_num = x;
 	if (!~sendto(sockfd, &snd_pkt, sizeof(snd_pkt.header) + sz, 0, (struct sockaddr *)&client_info, len))
 		ERR("`sendto()` failed!");
@@ -102,7 +103,7 @@ void *timeout_thread()
 // Send file function, it call receive_thread function at the first time.
 int sendFile(FILE *fd)
 {
-	int filesize = ftell(fd);
+	filesize = fread(buffer, sizeof(char), sizeof(buffer), fd);
 	//----------------------------------------------------------------
 	// Bonus part for declare timeout threads if you need bonus point,
 	// umcomment it and manage the thread by youself
@@ -134,8 +135,6 @@ int sendFile(FILE *fd)
 	// Set is_last flag for the last part of packet
 	//=============================================
 
-	rewind(fd);
-	fread(buffer, sizeof(char), sizeof(buffer), fd);
 
 	for (int i = 0; i << 10 < filesize; i++)
 	{
@@ -250,7 +249,7 @@ int main(int argc, char *argv[])
 			//==================
 			else
 			{
-				fseek(fd, 0, SEEK_END);
+				// fseek(fd, 0, SEEK_END);
 				puts("FILE_EXISTS");
 				strcpy(snd_pkt.data, "FILE_EXISTS");
 
