@@ -54,13 +54,13 @@ int first_time_create_thread = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char buffer[N];
-int base, timer[(N >> 10) + 1];
+int filesize, base, timer[(N >> 10) + 1];
 bool acked[(N >> 10) + 1];
 void sendPacket(int x)
 {
-	int sz = N - (x << 10) < 1024 ? N - (x << 10) : 1024;
+	int sz = filesize - (x << 10) < 1024 ? filesize - (x << 10) : 1024;
 	memcpy(snd_pkt.data, buffer + (x << 10), sz);
-	snd_pkt.header.isLast = (x << 10 | 1024) >= N;
+	snd_pkt.header.isLast = ((x << 10) + 1024) >= filesize;
 	snd_pkt.header.seq_num = x;
 	DBG("%d", x);
 	if (!~sendto(sockfd, &snd_pkt, sizeof(snd_pkt.header) + sz, 0, (struct sockaddr *)&client_info, len))
@@ -85,7 +85,7 @@ void *receive_thread()
 	// Checking timeout & Receive client ack
 	//--------------------------------------
 
-	int ack = 0, last = N >> 10;
+	int ack = 0, last = filesize >> 10;
 	while (ack != last + 1 && ~recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, (socklen_t *)&len))
 	{
 		printf("\tACK=%d\n", rcv_pkt.header.ack_num);
@@ -98,8 +98,6 @@ void *receive_thread()
 		while (base <= N >> 10 && acked[base])
 			++base;
 		pthread_mutex_unlock(&mutex);
-		if (rcv_pkt.header.isLast)
-			last = rcv_pkt.header.ack_num;
 	}
 
 	//------------------------------------------
@@ -138,7 +136,10 @@ void *timeout_thread()
 // Send file function, it call receive_thread function at the first time.
 int sendFile(FILE *fd)
 {
-	int filesize = ftell(fd);
+	filesize = fread(buffer, sizeof(char), sizeof(buffer), fd);
+	base = 0;
+	memset(timer, 0, sizeof(timer));
+	memset(acked, 0, sizeof(acked));
 	//----------------------------------------------------------------
 	// Bonus part for declare timeout threads if you need bonus point,
 	// umcomment it and manage the thread by youself
@@ -169,14 +170,6 @@ int sendFile(FILE *fd)
 	//=============================================
 	// Set is_last flag for the last part of packet
 	//=============================================
-
-	rewind(fd);
-	fread(buffer, sizeof(char), sizeof(buffer), fd);
-	pthread_mutex_lock(&mutex);
-	base = 0;
-	memset(timer, 0, sizeof(timer));
-	memset(acked, 0, sizeof(acked));
-	pthread_mutex_unlock(&mutex);
 
 	for (int i = 0; i << 10 < filesize; i++)
 	{
@@ -282,7 +275,7 @@ int main(int argc, char *argv[])
 				puts("FILE_NOT_EXISTS");
 				strcpy(snd_pkt.data, "FILE_NOT_EXISTS");
 				int numbytes;
-				if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&client_info, len)))
+				if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt.header) + sizeof(char) * (strlen(snd_pkt.data) + 1), 0, (struct sockaddr *)&client_info, len)))
 					ERR("`sendto()` failed!");
 				printf("server: sent %d bytes to %s\n", numbytes, inet_ntoa(client_info.sin_addr));
 			}
@@ -291,7 +284,7 @@ int main(int argc, char *argv[])
 			//==================
 			else
 			{
-				fseek(fd, 0, SEEK_END);
+				// fseek(fd, 0, SEEK_END);
 				puts("FILE_EXISTS");
 				strcpy(snd_pkt.data, "FILE_EXISTS");
 
@@ -299,7 +292,7 @@ int main(int argc, char *argv[])
 				// Send FILE_EXIST msg to the client
 				//==================================
 				int numbytes;
-				if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&client_info, len)))
+				if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt.header) + sizeof(char) * (strlen(snd_pkt.data) + 1), 0, (struct sockaddr *)&client_info, len)))
 					ERR("`sendto()` failed!");
 				printf("server: sent %d bytes to %s\n", numbytes, inet_ntoa(client_info.sin_addr));
 

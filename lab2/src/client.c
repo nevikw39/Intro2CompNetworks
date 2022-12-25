@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
 			//========================
 			// Send filename to server
 			//========================
-			if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&info, len)))
+			if (!~(numbytes = sendto(sockfd, &snd_pkt, sizeof(snd_pkt.header) + sizeof(char) * (strlen(snd_pkt.data) + 1), 0, (struct sockaddr *)&info, len)))
 				ERR("`sendto()` failed!");
 			printf("client: sent %d bytes to %s\n", numbytes, inet_ntoa(info.sin_addr));
 			//=========================================
