@@ -32,3 +32,9 @@ clean:
 
 test: all
 	test/test.sh
+
+doc: doc/README.pdf
+
+doc/README.pdf: doc/README.tex
+	latexmk -xelatex -cd doc/README.tex
+	latexmk -c -cd doc/README.tex
