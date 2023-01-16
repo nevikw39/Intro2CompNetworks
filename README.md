@@ -10,7 +10,7 @@ I was to write a C socket program to fetch a HTTP webpage and list all hyperlink
 
 ## Lab 2
 
-I was to design a server and client transferring files via UDP. In the bonus part, **selective repeat** and `pthread`` were in used.
+I was to design a server and client transferring files via UDP. In the bonus part, **selective repeat** and `pthread` were in used.
 
 - [Report](https://github.com/nevikw39/Intro2CompNetworks/raw/master/lab2/doc/README.pdf)
 
